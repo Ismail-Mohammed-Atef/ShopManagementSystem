@@ -1,0 +1,528 @@
+﻿@using DataLayer.Models
+@model List<Product>
+
+@{
+    ViewData["Title"] = "Buying List";
+}
+
+<div class="container mt-4">
+    <h2 class="text-primary">Buying List</h2>
+    <a href="@Url.Action("GetPurchases", "Purchase")" class="btn btn-secondary mb-3">View Purchase History</a>
+
+    <!-- Filter Section -->
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <input type="text" id="filterName" class="form-control" placeholder="Filter by Product Name" />
+        </div>
+        <div class="col-md-3">
+            <input type="number" id="filterQuantity" class="form-control" placeholder="Filter by Quantity" />
+        </div>
+        <div class="col-md-3">
+            <select id="filterQuantityCondition" class="form-control">
+                <option value="greater">Greater Than</option>
+                <option value="less">Less Than</option>
+                <option value="equal">Equal To</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Products Table (Available Products) -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="text-secondary">Available Products</h5>
+            <table class="table table-bordered table-hover" id="productsTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Current Quantity</th>
+                        <th>Buy Price (EGP)</th>
+                        <th>Sell Price (EGP)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var product in Model)
+                    {
+                        <tr data-id="@product.Id">
+                            <td>@product.ProductName</td>
+                            <td class="current-quantity">@product.Quantity</td>
+                            <td class="buy-price">@product.buyPrice</td>
+                            <td class="sell-price">@product.SellPrice</td>
+                            <td>
+                                <button class="btn btn-success add-to-purchase"
+                                        data-id="@product.Id"
+                                        data-name="@product.ProductName"
+                                        data-buy-price="@product.buyPrice"
+                                        data-sell-price="@product.SellPrice"
+                                        data-quantity="@product.Quantity">
+                                    Add to Purchase
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination for Products Table -->
+    <div class="row mt-3">
+        <div class="col-md-2">
+            <select id="itemsPerPage" class="form-control">
+                <option value="5">5 per page</option>
+                <option value="10">10 per page</option>
+                <option value="20">20 per page</option>
+                <option value="50">50 per page</option>
+            </select>
+        </div>
+        <div class="col-md-8">
+            <nav aria-label="Page navigation">
+                <ul class="pagination" id="pagination">
+                    <!-- Pagination buttons will be dynamically added here -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Purchase Summary Table -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h5 class="text-secondary">Purchase Summary</h5>
+            <!-- Purchase Note -->
+            <div style="padding-bottom: 20px">
+                <input type="text" class="form-control note" id="note" value="" placeholder="Add Purchase Note" />
+            </div>
+            <table class="table table-bordered" id="purchaseTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Buy Price (EGP)</th>
+                        <th>Sell Price (EGP)</th>
+                        <th>Current Quantity</th>
+                        <th>Purchase Quantity</th>
+                        <th>Subtotal (EGP)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="purchaseTableBody"></tbody>
+                <tfoot>
+                    <tr class="table-warning">
+                        <th colspan="5" class="text-end">Total Invoice (EGP):</th>
+                        <th id="totalInvoice">0.00</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="confirmPurchases" class="btn btn-primary mt-3" disabled>Confirm Purchases</button>
+        </div>
+    </div>
+
+    <!-- Confirmation Toast with Backdrop -->
+    <div class="toast-container position-fixed top-50 start-50 translate-middle p-3" style="z-index: 1055;">
+        <div id="confirmActionToast" class="toast bg-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-warning text-white">
+                <strong class="me-auto">Confirm Action</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body p-3">
+                <p class="mb-3">Are you sure you want to save these purchases?</p>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-success confirm-btn">Confirm</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger cancel-btn" data-bs-dismiss="toast">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toastBackdrop" class="bg-dark opacity-50 position-fixed top-0 start-0 w-100 h-100" style="z-index: 1050; display: none;"></div>
+
+    <!-- Success Toast -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="orderSuccessToast" class="toast align-items-center text-white bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    🎉 Operation completed successfully!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+
+<script>
+    let purchaseProducts = [];
+    let allProducts = [];
+    let currentPage = 1;
+    let itemsPerPage = 5;
+
+    // Initialize allProducts array
+    $("#productsTable tbody tr").each(function () {
+        allProducts.push({
+            id: $(this).data("id"),
+            name: $(this).find("td:eq(0)").text().trim(),
+            quantity: parseFloat($(this).find(".current-quantity").text().trim()),
+            buyPrice: parseFloat($(this).find(".buy-price").text().trim()),
+            sellPrice: parseFloat($(this).find(".sell-price").text().trim()),
+            row: this
+        });
+    });
+
+    // Calculate Total Invoice
+    function calculateTotal() {
+        let totalInvoice = purchaseProducts.reduce((sum, p) => sum + p.buyPrice * (p.quantity || 0), 0);
+        $("#totalInvoice").text(totalInvoice.toFixed(2));
+        $("#confirmPurchases").prop("disabled", purchaseProducts.length === 0 || !allPurchaseQuantitiesValid());
+    }
+
+    // Check if all purchase quantities are valid
+    function allPurchaseQuantitiesValid() {
+        return purchaseProducts.every(product =>
+            product.quantity !== "" &&
+            !isNaN(product.quantity) &&
+            product.buyPrice >= 0 &&
+            product.sellPrice >= 0
+        );
+    }
+
+    // Debounce function
+    function debounce(func, delay) {
+        let timeoutId;
+        return function (...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    // Show confirmation toast and return a Promise
+    function showConfirmToast(message) {
+        return new Promise((resolve) => {
+            let toastElement = $("#confirmActionToast")[0];
+            let backdropElement = $("#toastBackdrop")[0];
+            if (toastElement && backdropElement) {
+                toastElement.querySelector(".toast-body p").textContent = message;
+                let toast = new bootstrap.Toast(toastElement);
+                backdropElement.style.display = "block";
+                toast.show();
+
+                $(toastElement).find(".confirm-btn").off("click").on("click", function () {
+                    toast.hide();
+                    backdropElement.style.display = "none";
+                    resolve(true);
+                });
+
+                $(toastElement).find(".cancel-btn").off("click").on("click", function () {
+                    toast.hide();
+                    backdropElement.style.display = "none";
+                    resolve(false);
+                });
+
+                $(toastElement).on("hidden.bs.toast", function () {
+                    backdropElement.style.display = "none";
+                    resolve(false);
+                });
+            } else {
+                console.error("Confirmation toast or backdrop element not found!");
+                resolve(false);
+            }
+        });
+    }
+
+    // Add product to purchase
+    $(document).on("click", ".add-to-purchase", function () {
+        let productId = $(this).data("id");
+        let productName = $(this).data("name");
+        let buyPrice = parseFloat($(this).data("buy-price")) || 0;
+        let sellPrice = parseFloat($(this).data("sell-price")) || 0;
+        let availableQuantity = parseFloat($(this).data("quantity"));
+
+        if (!purchaseProducts.find(p => p.id === productId)) {
+            purchaseProducts.push({
+                id: productId,
+                name: productName,
+                buyPrice,
+                sellPrice,
+                quantity: 1,
+                availableQuantity,
+                subtotal: buyPrice
+            });
+            updatePurchaseTable();
+        }
+    });
+
+    // Update Purchase Table
+    function updatePurchaseTable() {
+        let tbody = $("#purchaseTableBody");
+        tbody.empty();
+
+        purchaseProducts.forEach((product, index) => {
+            let subtotal = product.buyPrice * product.quantity;
+            let newCurrentQuantity = product.availableQuantity + (product.quantity || 0);
+            let row = `<tr data-index="${index}">
+                <td>${product.name}</td>
+                <td><input type="number" class="form-control buy-price" data-index="${index}" value="${product.buyPrice}" min="0" step="0.01"></td>
+                <td><input type="number" class="form-control sell-price" data-index="${index}" value="${product.sellPrice}" min="0" step="0.01"></td>
+                <td class="current-quantity">${newCurrentQuantity}</td>
+                <td>
+                    <input type="number" class="form-control purchase-quantity"
+                           data-index="${index}"
+                           data-available="${product.availableQuantity}"
+                           value="${product.quantity}">
+                    <span class="text-danger tooltip-message" style="display:none; font-size: 12px;">
+                        Invalid quantity!
+                    </span>
+                </td>
+                <td class="subtotal">${subtotal.toFixed(2)}</td>
+                <td>
+                    <button class="btn btn-danger remove-from-purchase" data-index="${index}">Remove</button>
+                </td>
+            </tr>`;
+            tbody.append(row);
+        });
+
+        calculateTotal();
+    }
+
+    // Update a single purchase row's subtotal and current quantity
+    function updatePurchaseRow(index) {
+        let product = purchaseProducts[index];
+        let subtotal = product.buyPrice * (product.quantity || 0);
+        let newCurrentQuantity = product.availableQuantity + (product.quantity || 0);
+        let row = $(`#purchaseTableBody tr[data-index="${index}"]`);
+        row.find(".subtotal").text(subtotal.toFixed(2));
+        row.find(".current-quantity").text(newCurrentQuantity);
+        calculateTotal();
+    }
+
+    // Validate purchase quantity input and update current quantity
+    $(document).on("input", ".purchase-quantity", function () {
+        let index = $(this).data("index");
+        let inputValue = $(this).val().trim();
+        let inputField = $(this);
+        let tooltipMessage = inputField.siblings(".tooltip-message");
+
+        if (inputValue === "") {
+            inputField.removeClass("is-invalid");
+            tooltipMessage.hide();
+            purchaseProducts[index].quantity = 0;
+            purchaseProducts[index].subtotal = 0;
+        } else {
+            let newQuantity = parseFloat(inputValue);
+            if (!isNaN(newQuantity)) {
+                inputField.removeClass("is-invalid");
+                tooltipMessage.hide();
+                purchaseProducts[index].quantity = newQuantity;
+                purchaseProducts[index].subtotal = purchaseProducts[index].buyPrice * newQuantity;
+            } else {
+                inputField.addClass("is-invalid");
+                tooltipMessage.text("Invalid number!");
+                tooltipMessage.show();
+                purchaseProducts[index].quantity = 0;
+            }
+        }
+
+        updatePurchaseRow(index);
+    });
+
+    // Update buy price in purchase table
+    $(document).on("input", ".buy-price", function () {
+        let index = $(this).data("index");
+        let newBuyPrice = parseFloat($(this).val()) || 0;
+        if (newBuyPrice >= 0) {
+            purchaseProducts[index].buyPrice = newBuyPrice;
+            purchaseProducts[index].subtotal = newBuyPrice * purchaseProducts[index].quantity;
+            updatePurchaseRow(index);
+        }
+    });
+
+    // Update sell price in purchase table
+    $(document).on("input", ".sell-price", function () {
+        let index = $(this).data("index");
+        let newSellPrice = parseFloat($(this).val()) || 0;
+        if (newSellPrice >= 0) {
+            purchaseProducts[index].sellPrice = newSellPrice;
+            updatePurchaseRow(index);
+        }
+    });
+
+    // Remove product from purchase
+    $(document).on("click", ".remove-from-purchase", function () {
+        let index = $(this).data("index");
+        purchaseProducts.splice(index, 1);
+        updatePurchaseTable();
+    });
+
+    // Confirm Purchases
+    $("#confirmPurchases").click(debounce(async function () {
+        if (!allPurchaseQuantitiesValid()) return;
+
+        let confirmed = await showConfirmToast("Are you sure you want to save these purchases?");
+        if (!confirmed) return;
+
+        let updatedProducts = purchaseProducts.map(p => ({
+            id: p.id,
+            quantity: p.quantity,
+            buyPrice: p.buyPrice,
+            sellPrice: p.sellPrice
+        }));
+        let totalInvoice = parseFloat($("#totalInvoice").text()) || 0;
+        let note = $("#note").val() || "";
+
+        $.ajax({
+            url: "@Url.Action("SavePurchases", "Purchase")",
+            type: "POST",
+            contentType: "application/json",
+            data: JSON.stringify({ products: updatedProducts, totalInvoice: totalInvoice, note: note }),
+            success: function (data) {
+                if (data.success) {
+                    // Update allProducts with new sell prices before clearing purchaseProducts
+                    purchaseProducts.forEach(purchaseProduct => {
+                        let productInArray = allProducts.find(p => p.id === purchaseProduct.id);
+                        if (productInArray) {
+                            productInArray.sellPrice = purchaseProduct.sellPrice;
+                        }
+                    });
+
+                    showSuccessToast("Purchases saved successfully!");
+                    purchaseProducts = [];
+                    updatePurchaseTable();
+                    updateMainTable(data.updatedProducts);
+                    $("#note").val(""); // Reset note field
+                    renderTable(currentPage, itemsPerPage); // Re-render table
+                } else {
+                    alert(data.message || "No changes detected.");
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error("Error saving purchases:", error);
+                alert("An error occurred while saving purchases.");
+            }
+        });
+    }, 300));
+
+    // Update Main Table After Save
+    function updateMainTable(updatedProducts) {
+        if (!updatedProducts || !Array.isArray(updatedProducts)) {
+            console.error("Invalid updatedProducts data:", updatedProducts);
+            return;
+        }
+
+        updatedProducts.forEach(product => {
+            let row = $(`#productsTable tbody tr[data-id='${product.id}']`);
+            if (row.length) {
+                row.find(".current-quantity").text(product.newQuantity);
+                row.find(".buy-price").text(product.newBuyPrice);
+                let productInArray = allProducts.find(p => p.id === product.id);
+                if (productInArray) {
+                    row.find(".sell-price").text(productInArray.sellPrice);
+                }
+
+                let addButton = row.find(".add-to-purchase");
+                addButton.data("quantity", product.newQuantity);
+                addButton.data("buy-price", product.newBuyPrice);
+                if (productInArray) {
+                    addButton.data("sell-price", productInArray.sellPrice);
+                }
+
+                // Sync allProducts array (quantity and buyPrice from response, sellPrice already updated)
+                if (productInArray) {
+                    productInArray.quantity = product.newQuantity;
+                    productInArray.buyPrice = product.newBuyPrice;
+                }
+            } else {
+                console.warn(`Row not found for product ID: ${product.id}`);
+            }
+        });
+    }
+
+    // Filter Products
+    function filterProducts() {
+        const filterName = $("#filterName").val().toLowerCase();
+        const filterQuantity = parseFloat($("#filterQuantity").val());
+        const filterCondition = $("#filterQuantityCondition").val();
+
+        return allProducts.filter(product => {
+            const nameMatch = product.name.toLowerCase().includes(filterName);
+            let quantityMatch = true;
+
+            if (!isNaN(filterQuantity)) {
+                if (filterCondition === "greater") {
+                    quantityMatch = product.quantity > filterQuantity;
+                } else if (filterCondition === "less") {
+                    quantityMatch = product.quantity < filterQuantity;
+                } else if (filterCondition === "equal") {
+                    quantityMatch = product.quantity === filterQuantity;
+                }
+            }
+            return nameMatch && quantityMatch;
+        });
+    }
+
+    // Render Table
+    function renderTable(page, itemsPerPage) {
+        const filteredProducts = filterProducts();
+        const startIndex = (page - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, filteredProducts.length);
+        const paginatedProducts = filteredProducts.slice(startIndex, endIndex);
+
+        $("#productsTable tbody tr").hide();
+        paginatedProducts.forEach(product => {
+            $(product.row).show();
+        });
+
+        renderPagination(filteredProducts.length, itemsPerPage, page);
+    }
+
+    // Render Pagination
+    function renderPagination(totalItems, itemsPerPage, currentPage) {
+        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+        const paginationUl = $("#pagination");
+        paginationUl.empty();
+
+        for (let i = 1; i <= totalPages; i++) {
+            const li = $(`<li class="page-item ${i === currentPage ? "active" : ""}"><a class="page-link" href="#">${i}</a></li>`);
+            li.find("a").click((e) => {
+                e.preventDefault();
+                currentPage = i;
+                renderTable(currentPage, itemsPerPage);
+            });
+            paginationUl.append(li);
+        }
+    }
+
+    // Event Listeners
+    $("#filterName").on("input", () => {
+        currentPage = 1;
+        renderTable(currentPage, itemsPerPage);
+    });
+
+    $("#filterQuantity").on("input", () => {
+        currentPage = 1;
+        renderTable(currentPage, itemsPerPage);
+    });
+
+    $("#filterQuantityCondition").on("change", () => {
+        currentPage = 1;
+        renderTable(currentPage, itemsPerPage);
+    });
+
+    $("#itemsPerPage").on("change", (e) => {
+        itemsPerPage = parseFloat(e.target.value);
+        currentPage = 1;
+        renderTable(currentPage, itemsPerPage);
+    });
+
+    // Show Success Toast
+    function showSuccessToast(message) {
+        let toastElement = $("#orderSuccessToast");
+        toastElement.find(".toast-body").text(message);
+        let toast = new bootstrap.Toast(toastElement[0]);
+        toast.show();
+    }
+
+    // Initial Render
+    renderTable(currentPage, itemsPerPage);
+    calculateTotal();
+</script>

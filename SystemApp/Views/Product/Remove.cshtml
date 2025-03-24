@@ -1,0 +1,27 @@
+﻿@using DataLayer.Models
+@model Product
+
+@{
+    ViewData["Title"] = "Confirm Removal";
+}
+
+<div class="container mt-4">
+    <h2 class="text-danger">Remove Product</h2>
+
+    <div class="card shadow-sm p-4">
+        <h4 class="text-primary">@Model.ProductName</h4>
+
+        <ul class="list-group list-group-flush mb-3">
+            <li class="list-group-item"><strong>Buy Price:</strong> @Model.buyPrice.ToString("C")</li>
+            <li class="list-group-item"><strong>Sell Price:</strong> @Model.SellPrice.ToString("C")</li>
+            <li class="list-group-item"><strong>Quantity:</strong> @Model.Quantity</li>
+        </ul>
+
+        <form method="post" asp-action="ConfirmRemove">
+            <input type="hidden" name="id" value="@Model.Id" />
+
+            <button type="submit" class="btn btn-danger">Confirm</button>
+            <a asp-action="Index" class="btn btn-secondary">Return to Main Page</a>
+        </form>
+    </div>
+</div>

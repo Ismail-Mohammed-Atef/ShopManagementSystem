@@ -1,0 +1,966 @@
+﻿@using SystemApp.ViewModels
+@model OrderViewModel
+@{
+    ViewData["Title"] = "Create Order";
+}
+<link rel="stylesheet" href="~/lib/bootstrap-icons/font/fonts/bootstrap-icons.woff" asp-append-version="true" />
+<link rel="stylesheet" href="~/lib/bootstrap-icons/font/fonts/bootstrap-icons.woff2" asp-append-version="true" />
+
+<div class="container mt-4">
+    <h2 class="text-primary">Create Order</h2>
+
+    <!-- Filter Form -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="searchTerm" class="form-label">Search by Name</label>
+                        <input type="text" id="searchTerm" name="searchTerm" class="form-control" placeholder="Enter product name">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Filter by Quantity</label>
+                        <div class="input-group">
+                            <select id="quantityFilter" name="quantityFilter" class="form-select">
+                                <option value="greater">Greater Than</option>
+                                <option value="less">Less Than</option>
+                                <option value="equal">Equals</option>
+                            </select>
+                            <input type="number" id="quantityInput" name="quantity" class="form-control" placeholder="Enter quantity" min="0" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Product Table -->
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h5 class="text-secondary">Available Products</h5>
+            <table class="table table-striped table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Sell Price ($)</th>
+                        <th>Available Quantity</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    @foreach (var product in Model.Products)
+                    {
+                        <tr>
+                            <td>@product.ProductName</td>
+                            <td>@product.SellPrice</td>
+                            <td>@product.AvailableQuantity</td>
+                            <td>
+                                <button class="btn btn-success add-to-order"
+                                        data-id="@product.ProductId"
+                                        data-name="@product.ProductName"
+                                        data-price="@product.SellPrice"
+                                        data-quantity="@product.AvailableQuantity"
+                                @(product.AvailableQuantity == 0 ? "disabled" : "")>
+                                    Add to Order
+                                </button>
+                                <button class="btn btn-warning refund-to-order"
+                                        data-id="@product.ProductId"
+                                        data-name="@product.ProductName"
+                                        data-price="@product.SellPrice"
+                                        data-quantity="@product.AvailableQuantity">
+                                    Refund
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center" id="paginationControls">
+                    <!-- Pagination links will be dynamically populated here -->
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Toast Container with Backdrop -->
+    <div class="toast-container position-fixed top-50 start-50 translate-middle p-3" style="z-index: 1055;">
+        <div id="confirmActionToast" class="toast bg-white border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-warning text-white">
+                <strong class="me-auto">Confirm Action</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body p-3">
+                <p class="mb-3">Are you sure you want to proceed?</p>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-success confirm-btn">Confirm</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger cancel-btn" data-bs-dismiss="toast">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional Backdrop for Professional Look -->
+    <div id="toastBackdrop" class="bg-dark opacity-50 position-fixed top-0 start-0 w-100 h-100" style="z-index: 1050; display: none;"></div>
+
+    <!-- Order Table -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h5 class="text-secondary">Order Summary</h5>
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Sell Price ($)</th>
+                        <th>Quantity</th>
+                        <th>Subtotal ($)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="orderTableBody"></tbody>
+                <tfoot>
+                    <tr class="table-warning">
+                        <th colspan="3" class="text-end">Total Price ($):</th>
+                        <th id="totalPrice">0.00</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="orderNow" class="btn btn-primary mt-3" disabled>Order Now</button>
+        </div>
+    </div>
+
+    <!-- Refund Table -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-body">
+            <h5 class="text-secondary">Refund Summary</h5>
+            <table class="table table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Name</th>
+                        <th>Sell Price ($)</th>
+                        <th>Quantity</th>
+                        <th>Subtotal ($)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="refundTableBody"></tbody>
+                <tfoot>
+                    <tr class="table-warning">
+                        <th colspan="3" class="text-end">Total Refund ($):</th>
+                        <th id="totalRefund">0.00</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="refundNow" class="btn btn-danger mt-3" disabled>Refund Now</button>
+        </div>
+    </div>
+
+    <!-- Bootstrap Toast Notification -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="orderSuccessToast" class="toast align-items-center text-white bg-success border-0" role="alert">
+            <div class="d-flex">
+                <div class="toast-body">
+                    🎉 Order placed successfully!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extra Payments Section -->
+    <div class="card shadow-sm mb-4" style="margin-top: 40px">
+        <div class="card-body">
+            <h4 class="text-success mb-3">Extra Payments</h4>
+            <div class="row g-3 mb-3">
+                <div class="col-md-5">
+                    <input type="text" id="extraDescription" class="form-control" placeholder="Enter description" />
+                </div>
+                <div class="col-md-4">
+                    <input type="number" id="extraPrice" class="form-control" placeholder="Enter price (EGP)" step="1" />
+                </div>
+                <div class="col-md-3">
+                    <button id="addExtraPayment" class="btn btn-primary w-100">Add Payment</button>
+                </div>
+            </div>
+
+            <table class="table table-striped table-hover" id="extraPaymentsTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Description</th>
+                        <th>Price (EGP)</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="extraPaymentsBody">
+                    <!-- Dynamically added rows will appear here -->
+                </tbody>
+            </table>
+            <button id="saveExtraPayments" class="btn btn-success mt-3" disabled>Pay Extra Payments</button>
+        </div>
+    </div>
+
+    <!-- jQuery -->
+    <script src="~/lib/jquery/dist/jquery.js" asp-append-version="true"></script>
+
+    <script>
+        $(document).ready(function () {
+            let orderProducts = [];
+            let refundProducts = [];
+            let currentPage = 1;
+            const pageSize = 35; // 4 products per page
+
+            // Function to filter products
+            function filterProducts(page = 1) {
+                let searchTerm = $("#searchTerm").val();
+                let quantityFilter = $("#quantityFilter").val();
+                let quantity = $("#quantityInput").val();
+
+                $.ajax({
+                    url: "@Url.Action("SearchProducts", "Order")",
+                    type: "GET",
+                    data: {
+                        searchName: searchTerm,
+                        quantityFilter: quantityFilter,
+                        quantity: quantity,
+                        pageNumber: page,
+                        pageSize: pageSize
+                    },
+                    success: function (response) {
+                        let tbody = $("#productTableBody");
+                        tbody.empty();
+
+                        response.products.forEach(product => {
+                            let disabled = product.quantity === 0 ? "disabled" : "";
+                            let row = `<tr>
+                                <td>${product.productName}</td>
+                                <td>${product.sellPrice.toFixed(2)}</td>
+                                <td>${product.quantity}</td>
+                                <td>
+                                    <button class="btn btn-success add-to-order"
+                                            data-id="${product.id}"
+                                            data-name="${product.productName}"
+                                            data-price="${product.sellPrice}"
+                                            data-quantity="${product.quantity}"
+                                            ${disabled}>
+                                        Add to Order
+                                    </button>
+                                    <button class="btn btn-warning refund-to-order"
+                                            data-id="${product.id}"
+                                            data-name="${product.productName}"
+                                            data-price="${product.sellPrice}"
+                                            data-quantity="${product.quantity}">
+                                        Refund
+                                    </button>
+                                </td>
+                            </tr>`;
+                            tbody.append(row);
+                        });
+
+                        // Update pagination controls
+                        updatePagination(response.totalCount, page);
+                    },
+                    error: function (xhr, status, error) {
+                        console.error("Error filtering products:", error);
+                    }
+                });
+            }
+
+            // Function to update pagination controls
+            function updatePagination(totalCount, currentPage) {
+                let totalPages = Math.ceil(totalCount / pageSize);
+                let paginationControls = $("#paginationControls");
+                paginationControls.empty();
+
+                // Previous Button
+                paginationControls.append(`
+                    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+                    </li>
+                `);
+
+                // Page Numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    paginationControls.append(`
+                        <li class="page-item ${i === currentPage ? 'active' : ''}">
+                            <a class="page-link" href="#" data-page="${i}">${i}</a>
+                        </li>
+                    `);
+                }
+
+                // Next Button
+                paginationControls.append(`
+                    <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+                        <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+                    </li>
+                `);
+            }
+
+            // Event listener for pagination controls
+            $(document).on("click", ".page-link", function (e) {
+                e.preventDefault();
+                let page = $(this).data("page");
+                if (page) {
+                    currentPage = page;
+                    filterProducts(currentPage);
+                }
+            });
+
+            // Live filter on input change
+            $("#searchTerm, #quantityFilter, #quantityInput").on("input change", function () {
+                currentPage = 1; // Reset to first page on filter change
+                filterProducts(currentPage);
+            });
+
+            // Initial load of products
+            filterProducts(currentPage);
+
+            // Add product to order
+            $(document).on("click", ".add-to-order", function () {
+                let productId = $(this).data("id");
+                let productName = $(this).data("name");
+                let sellPrice = parseFloat($(this).data("price"));
+                let availableQuantity = parseFloat($(this).data("quantity"));
+
+                if (availableQuantity > 0 && !orderProducts.find(p => p.productId === productId)) {
+                    orderProducts.push({ productId, productName, sellPrice, quantity: 1, availableQuantity, subtotal: sellPrice });
+                    updateOrderTable();
+                }
+            });
+
+            // Add product to refund
+            $(document).on("click", ".refund-to-order", function () {
+                let productId = $(this).data("id");
+                let productName = $(this).data("name");
+                let sellPrice = parseFloat($(this).data("price"));
+                let availableQuantity = parseFloat($(this).data("quantity"));
+
+                if (!refundProducts.find(p => p.productId === productId)) {
+                    refundProducts.push({ productId, productName, sellPrice, quantity: 1, availableQuantity, subtotal: sellPrice });
+                    updateRefundTable();
+                }
+            });
+
+            // Update Order Table (only called when adding/removing products)
+            function updateOrderTable() {
+                let tbody = $("#orderTableBody");
+                tbody.empty();
+                let total = 0;
+
+                orderProducts.forEach((product, index) => {
+                    let subtotal = product.sellPrice * product.quantity;
+                    total += subtotal;
+
+                    let row = `<tr data-index="${index}">
+                        <td>${product.productName}</td>
+                        <td>${product.sellPrice.toFixed(2)}</td>
+                        <td>
+                            <input type="number" class="form-control order-quantity"
+                                   data-index="${index}"
+                                   data-available="${product.availableQuantity}"
+                                   value="${product.quantity}">
+                            <span class="text-danger tooltip-message" style="display:none; font-size: 12px;">
+                                Exceeds available quantity!
+                            </span>
+                        </td>
+                        <td class="subtotal">${subtotal.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-danger remove-from-order" data-index="${index}">Remove</button>
+                        </td>
+                    </tr>`;
+                    tbody.append(row);
+                });
+
+                $("#totalPrice").text(total.toFixed(2));
+                $("#orderNow").prop("disabled", orderProducts.length === 0 || !allOrderQuantitiesValid());
+            }
+
+            // Update a single order row's subtotal and total price
+            function updateOrderRow(index) {
+                let product = orderProducts[index];
+                let subtotal = product.sellPrice * (product.quantity || 0); // Default to 0 if quantity is empty/invalid
+                let row = $(`#orderTableBody tr[data-index="${index}"]`);
+                row.find(".subtotal").text(subtotal.toFixed(2));
+
+                let total = orderProducts.reduce((sum, p) => sum + p.sellPrice * (p.quantity || 0), 0);
+                $("#totalPrice").text(total.toFixed(2));
+                $("#orderNow").prop("disabled", !allOrderQuantitiesValid());
+            }
+
+            // Check if all order quantities are valid
+            function allOrderQuantitiesValid() {
+                return orderProducts.length > 0 && orderProducts.every(product =>
+                    product.quantity !== "" &&
+                    !isNaN(product.quantity) &&
+                    product.quantity > 0 &&
+                    product.quantity <= product.availableQuantity
+                );
+            }
+
+            // // Update Refund Table (only called when adding/removing products)
+            // function updateRefundTable() {
+            //     let tbody = $("#refundTableBody");
+            //     tbody.empty();
+            //     let totalRefund = 0;
+
+            //     refundProducts.forEach((product, index) => {
+            //         let sell = -product.sellPrice;
+            //         let subtotal = sell * product.quantity;
+            //         totalRefund += subtotal;
+
+            //         let row = `<tr data-index="${index}">
+            //             <td>${product.productName}</td>
+            //             <td>${(sell).toFixed(2)}</td>
+            //             <td>
+            //                 <input type="number" class="form-control refund-quantity"
+            //                        data-index="${index}"
+            //                        data-available="${product.availableQuantity}"
+            //                        value="${product.quantity}">
+            //                 <span class="text-danger tooltip-message" style="display:none; font-size: 12px;">
+            //                     Invalid quantity!
+            //                 </span>
+            //             </td>
+            //             <td class="subtotal">${subtotal.toFixed(2)}</td>
+            //             <td>
+            //                 <button class="btn btn-danger remove-from-refund" data-index="${index}">Remove</button>
+            //             </td>
+            //         </tr>`;
+            //         tbody.append(row);
+            //     });
+
+            //     $("#totalRefund").text((-totalRefund).toFixed(2));
+
+            //     $("#refundNow").prop("disabled", refundProducts.length === 0 || !allRefundQuantitiesValid());
+            // }
+
+            // // Update a single refund row's subtotal and total refund
+            // function updateRefundRow(index) {
+            //     let product = refundProducts[index];
+            //     let subtotal = product.sellPrice * (product.quantity || 0); // Default to 0 if quantity is empty/invalid
+            //     let row = $(`#refundTableBody tr[data-index="${index}"]`);
+            //     row.find(".subtotal").text(subtotal.toFixed(2));
+
+            //     let totalRefund = refundProducts.reduce((sum, p) => sum - p.sellPrice * (p.quantity || 0), 0);
+            //     $("#totalRefund").text((-totalRefund).toFixed(2));
+            //     $("#refundNow").prop("disabled", !allRefundQuantitiesValid());
+            // }
+
+            // // Check if all refund quantities are valid
+            // function allRefundQuantitiesValid() {
+            //     return refundProducts.length > 0 && refundProducts.every(product =>
+            //         product.quantity !== "" &&
+            //         !isNaN(product.quantity) &&
+            //         product.quantity > 0
+            //     );
+            // }
+
+            // // Validate order quantity input
+            // $(document).on("input", ".order-quantity", function () {
+            //     let index = $(this).data("index");
+            //     let inputValue = $(this).val().trim();
+            //     let inputField = $(this);
+            //     let tooltipMessage = inputField.siblings(".tooltip-message");
+            //     let available = parseFloat(inputField.data("available"));
+
+            //     if (inputValue === "") {
+            //         inputField.removeClass("is-invalid");
+            //         tooltipMessage.hide();
+            //         orderProducts[index].quantity = "";
+            //         orderProducts[index].subtotal = 0;
+            //     } else {
+            //         let newQuantity = parseFloat(inputValue);
+            //         if (!isNaN(newQuantity)) {
+            //             if (newQuantity > 0 && newQuantity <= available) {
+            //                 inputField.removeClass("is-invalid");
+            //                 tooltipMessage.hide();
+            //                 orderProducts[index].quantity = newQuantity;
+            //                 orderProducts[index].subtotal = orderProducts[index].sellPrice * newQuantity;
+            //             } else {
+            //                 inputField.addClass("is-invalid");
+            //                 tooltipMessage.text(newQuantity <= 0 ? "Quantity must be greater than 0." : "Exceeds available quantity!");
+            //                 tooltipMessage.show();
+            //                 orderProducts[index].quantity = newQuantity; // Still store invalid value for validation
+            //             }
+            //         } else {
+            //             inputField.addClass("is-invalid");
+            //             tooltipMessage.text("Invalid number!");
+            //             tooltipMessage.show();
+            //             orderProducts[index].quantity = inputValue; // Store as-is for validation
+            //         }
+            //     }
+
+            //     updateOrderRow(index);
+            // });
+
+            // // Validate refund quantity input
+            // $(document).on("click", ".refund-to-order", function () {
+            //     let productId = $(this).data("id");
+            //     let productName = $(this).data("name");
+            //     let sellPrice = parseFloat($(this).data("price"));
+            //     let availableQuantity = parseFloat($(this).data("quantity"));
+
+            //     if (!refundProducts.find(p => p.productId === productId)) {
+            //         refundProducts.push({ productId, productName, sellPrice, quantity: 1, availableQuantity, subtotal: sellPrice });
+            //         updateRefundTable();
+            //     }
+            // });
+
+            // Update Refund Table (only called when adding/removing products)
+            function updateRefundTable() {
+                let tbody = $("#refundTableBody");
+                tbody.empty();
+                let totalRefund = 0;
+
+                refundProducts.forEach((product, index) => {
+                    let subtotal = product.sellPrice * product.quantity;
+                    totalRefund += subtotal;
+
+                    let row = `<tr data-index="${index}">
+                        <td>${product.productName}</td>
+                        <td>${(-product.sellPrice).toFixed(2)}</td>
+                        <td>
+                            <input type="number" class="form-control refund-quantity"
+                                   data-index="${index}"
+                                   data-available="${product.availableQuantity}"
+                                   value="${product.quantity}">
+                            <span class="text-danger tooltip-message" style="display:none; font-size: 12px;">
+                                Invalid quantity!
+                            </span>
+                        </td>
+                        <td class="subtotal">${-subtotal.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-danger remove-from-refund" data-index="${index}">Remove</button>
+                        </td>
+                    </tr>`;
+                    tbody.append(row);
+                });
+
+                $("#totalRefund").text((-totalRefund).toFixed(2));
+                $("#refundNow").prop("disabled", refundProducts.length === 0 || !allRefundQuantitiesValid());
+            }
+
+            // Update a single refund row's subtotal and total refund
+            function updateRefundRow(index) {
+                let product = refundProducts[index];
+                let subtotal = product.sellPrice * (product.quantity || 0); // Default to 0 if quantity is empty/invalid
+                let row = $(`#refundTableBody tr[data-index="${index}"]`);
+                row.find(".subtotal").text(-subtotal.toFixed(2));
+
+                let totalRefund = refundProducts.reduce((sum, p) => sum + p.sellPrice * (p.quantity || 0), 0);
+                $("#totalRefund").text((-totalRefund).toFixed(2));
+                $("#refundNow").prop("disabled", !allRefundQuantitiesValid());
+            }
+
+            // Check if all refund quantities are valid
+            function allRefundQuantitiesValid() {
+                return refundProducts.length > 0 && refundProducts.every(product =>
+                    product.quantity !== "" &&
+                    !isNaN(product.quantity) &&
+                    product.quantity > 0
+                );
+            }
+
+            // Validate order quantity input
+            $(document).on("input", ".order-quantity", function () {
+                let index = $(this).data("index");
+                let inputValue = $(this).val().trim();
+                let inputField = $(this);
+                let tooltipMessage = inputField.siblings(".tooltip-message");
+                let available = parseFloat(inputField.data("available"));
+
+                if (inputValue === "") {
+                    inputField.removeClass("is-invalid");
+                    tooltipMessage.hide();
+                    orderProducts[index].quantity = "";
+                    orderProducts[index].subtotal = 0;
+                } else {
+                    let newQuantity = parseFloat(inputValue);
+                    if (!isNaN(newQuantity)) {
+                        if (newQuantity > 0 && newQuantity <= available) {
+                            inputField.removeClass("is-invalid");
+                            tooltipMessage.hide();
+                            orderProducts[index].quantity = newQuantity;
+                            orderProducts[index].subtotal = orderProducts[index].sellPrice * newQuantity;
+                        } else {
+                            inputField.addClass("is-invalid");
+                            tooltipMessage.text(newQuantity <= 0 ? "Quantity must be greater than 0." : "Exceeds available quantity!");
+                            tooltipMessage.show();
+                            orderProducts[index].quantity = newQuantity; // Still store invalid value for validation
+                        }
+                    } else {
+                        inputField.addClass("is-invalid");
+                        tooltipMessage.text("Invalid number!");
+                        tooltipMessage.show();
+                        orderProducts[index].quantity = inputValue; // Store as-is for validation
+                    }
+                }
+
+                updateOrderRow(index);
+            });
+
+            // Validate refund quantity input
+            $(document).on("input", ".refund-quantity", function () {
+                let index = $(this).data("index");
+                let inputValue = $(this).val().trim();
+                let inputField = $(this);
+                let tooltipMessage = inputField.siblings(".tooltip-message");
+                let available = parseFloat(inputField.data("available"));
+
+                if (inputValue === "") {
+                    inputField.removeClass("is-invalid");
+                    tooltipMessage.hide();
+                    refundProducts[index].quantity = "";
+                    refundProducts[index].subtotal = 0;
+                } else {
+                    let newQuantity = parseFloat(inputValue);
+                    if (!isNaN(newQuantity)) {
+                        if (newQuantity > 0) {
+                            inputField.removeClass("is-invalid");
+                            tooltipMessage.hide();
+                            refundProducts[index].quantity = newQuantity;
+                            refundProducts[index].subtotal = refundProducts[index].sellPrice * newQuantity;
+                        } else {
+                            inputField.addClass("is-invalid");
+                            tooltipMessage.text("Quantity must be greater than 0.");
+                            tooltipMessage.show();
+                            refundProducts[index].quantity = newQuantity; // Still store invalid value for validation
+                        }
+                    } else {
+                        inputField.addClass("is-invalid");
+                        tooltipMessage.text("Invalid number!");
+                        tooltipMessage.show();
+                        refundProducts[index].quantity = inputValue; // Store as-is for validation
+                    }
+                }
+
+                updateRefundRow(index);
+            });
+
+            // Remove product from order
+            $(document).on("click", ".remove-from-order", function () {
+                let index = $(this).data("index");
+                orderProducts.splice(index, 1);
+                updateOrderTable();
+            });
+
+            // Remove product from refund
+            $(document).on("click", ".remove-from-refund", function () {
+                let index = $(this).data("index");
+                refundProducts.splice(index, 1);
+                updateRefundTable();
+            });
+
+            // Finalize order with debouncing
+            $(document).ready(function () {
+                // Debounce function
+                function debounce(func, delay) {
+                    let timeoutId;
+                    return function (...args) {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => func.apply(this, args), delay);
+                    };
+                }
+
+                // Show confirmation toast and return a Promise
+                function showConfirmToast(message) {
+                    return new Promise((resolve) => {
+                        let toastElement = document.getElementById("confirmActionToast");
+                        let backdropElement = document.getElementById("toastBackdrop");
+                        if (toastElement && backdropElement) {
+                            toastElement.querySelector(".toast-body p").textContent = message; // Update only the <p> element
+                            let toast = new bootstrap.Toast(toastElement);
+                            backdropElement.style.display = "block"; // Show backdrop
+                            toast.show();
+
+                            // Handle Confirm button
+                            $(toastElement).find(".confirm-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(true);
+                            });
+
+                            // Handle Cancel button (or toast dismissal)
+                            $(toastElement).find(".cancel-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+
+                            // If toast is closed without button click, treat as cancel
+                            $(toastElement).on("hidden.bs.toast", function () {
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+                        } else {
+                            console.error("Confirmation toast or backdrop element not found!");
+                            resolve(false); // Fallback to cancel if toast fails
+                        }
+                    });
+                }
+
+                // Click handler
+                const handleOrderClick = debounce(async function () {
+                    if (!allOrderQuantitiesValid()) return; // Prevent submission if invalid
+
+                    let confirmed = await showConfirmToast("Are you sure you want to place this order?");
+                    if (!confirmed) return;
+
+                    let orderData = {
+                        SelectedProducts: orderProducts,
+                        TotalAmount: parseFloat($("#totalPrice").text())
+                    };
+
+                    $.ajax({
+                        url: "@Url.Action("CreateOrder", "Order")",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify(orderData),
+                        success: function (response) {
+                            if (response.success) {
+                                showSuccessToast("Order placed successfully!");
+                                orderProducts = [];
+                                updateOrderTable();
+                                filterProducts(currentPage);
+                            } else {
+                                alert("Error: " + response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error placing order:", error);
+                            alert("An error occurred while placing the order.");
+                        }
+                    });
+                }, 200); // 100ms debounce delay
+
+                // Attach debounced handler
+                $("#orderNow").click(handleOrderClick);
+            });
+
+            // Finalize refund with debouncing
+            $(document).ready(function () {
+                // Debounce function
+                function debounce(func, delay) {
+                    let timeoutId;
+                    return function (...args) {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => func.apply(this, args), delay);
+                    };
+                }
+
+                // Show confirmation toast and return a Promise
+                function showConfirmToast(message) {
+                    return new Promise((resolve) => {
+                        let toastElement = document.getElementById("confirmActionToast");
+                        let backdropElement = document.getElementById("toastBackdrop");
+                        if (toastElement && backdropElement) {
+                            toastElement.querySelector(".toast-body p").textContent = message; // Update only the <p> element
+                            let toast = new bootstrap.Toast(toastElement);
+                            backdropElement.style.display = "block"; // Show backdrop
+                            toast.show();
+
+                            // Handle Confirm button
+                            $(toastElement).find(".confirm-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(true);
+                            });
+
+                            // Handle Cancel button (or toast dismissal)
+                            $(toastElement).find(".cancel-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+
+                            // If toast is closed without button click, treat as cancel
+                            $(toastElement).on("hidden.bs.toast", function () {
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+                        } else {
+                            console.error("Confirmation toast or backdrop element not found!");
+                            resolve(false); // Fallback to cancel if toast fails
+                        }
+                    });
+                }
+
+                // Click handler
+                const handleRefundClick = debounce(async function () {
+                    if (!allRefundQuantitiesValid()) return; // Prevent submission if invalid
+
+                    let confirmed = await showConfirmToast("Are you sure you want to process this refund?");
+                    if (!confirmed) return;
+
+                    let refundData = {
+                        SelectedProducts: refundProducts,
+                        TotalAmount: parseFloat($("#totalRefund").text())
+                    };
+
+                    $.ajax({
+                        url: "@Url.Action("RefundOrder", "Order")",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify(refundData),
+                        success: function (response) {
+                            if (response.success) {
+                                showSuccessToast("Refund processed successfully!");
+                                refundProducts = [];
+                                updateRefundTable();
+                                filterProducts(currentPage);
+                            } else {
+                                alert("Error: " + response.message);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error processing refund:", error);
+                            alert("An error occurred while processing the refund.");
+                        }
+                    });
+                }, 200); // 500ms debounce delay
+
+                // Attach debounced handler
+                $("#refundNow").click(handleRefundClick);
+            });
+
+            let extraPayments = [];
+
+            // Add Extra Payment
+            document.getElementById("addExtraPayment").addEventListener("click", function () {
+                let description = document.getElementById("extraDescription").value.trim();
+                let price = parseFloat(document.getElementById("extraPrice").value) || 0;
+
+                extraPayments.push({ description, price });
+                renderExtraPayments();
+                document.getElementById("extraDescription").value = "";
+                document.getElementById("extraPrice").value = "";
+            });
+
+            // Render Extra Payments Table and update button state
+            function renderExtraPayments() {
+                let tbody = document.getElementById("extraPaymentsBody");
+                tbody.innerHTML = "";
+                extraPayments.forEach((payment, index) => {
+                    let row = `
+                        <tr data-index="${index}">
+                            <td>${payment.description}</td>
+                            <td>${payment.price.toFixed(2)}</td>
+                            <td class="text-center">
+                                <button class="btn btn-danger btn-sm remove-extra">Remove</button>
+                            </td>
+                        </tr>`;
+                    tbody.innerHTML += row;
+                });
+                // Enable/disable Save Extra Payments button based on table content
+                $("#saveExtraPayments").prop("disabled", extraPayments.length === 0);
+            }
+
+            // Remove Extra Payment
+            document.getElementById("extraPaymentsBody").addEventListener("click", function (e) {
+                if (e.target.classList.contains("remove-extra")) {
+                    let index = e.target.closest("tr").getAttribute("data-index");
+                    extraPayments.splice(index, 1);
+                    renderExtraPayments();
+                }
+            });
+
+            // Save (Pay) Extra Payments with debouncing and $.ajax
+            $(document).ready(function () {
+                // Debounce function
+                function debounce(func, delay) {
+                    let timeoutId;
+                    return function (...args) {
+                        clearTimeout(timeoutId);
+                        timeoutId = setTimeout(() => func.apply(this, args), delay);
+                    };
+                }
+
+                // Show confirmation toast and return a Promise
+                function showConfirmToast(message) {
+                    return new Promise((resolve) => {
+                        let toastElement = document.getElementById("confirmActionToast");
+                        let backdropElement = document.getElementById("toastBackdrop");
+                        if (toastElement && backdropElement) {
+                            toastElement.querySelector(".toast-body p").textContent = message; // Update only the <p> element
+                            let toast = new bootstrap.Toast(toastElement);
+                            backdropElement.style.display = "block"; // Show backdrop
+                            toast.show();
+
+                            // Handle Confirm button
+                            $(toastElement).find(".confirm-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(true);
+                            });
+
+                            // Handle Cancel button (or toast dismissal)
+                            $(toastElement).find(".cancel-btn").off("click").on("click", function () {
+                                toast.hide();
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+
+                            // If toast is closed without button click, treat as cancel
+                            $(toastElement).on("hidden.bs.toast", function () {
+                                backdropElement.style.display = "none";
+                                resolve(false);
+                            });
+                        } else {
+                            console.error("Confirmation toast or backdrop element not found!");
+                            resolve(false); // Fallback to cancel if toast fails
+                        }
+                    });
+                }
+
+                // Click handler
+                const handleSaveExtraPayments = debounce(async function () {
+                    if (extraPayments.length === 0) {
+                        alert("No extra payments to pay.");
+                        return;
+                    }
+
+                    let confirmed = await showConfirmToast("Are you sure you want to pay these extra payments?");
+                    if (!confirmed) return;
+
+                    $.ajax({
+                        url: "@Url.Action("SaveExtraPayments", "Order")",
+                        type: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify({ extraPayments: extraPayments }),
+                        success: function (response) {
+                            if (response.success) {
+                                showSuccessToast("Extra payments paid successfully!");
+                                extraPayments = []; // Clear after saving
+                                renderExtraPayments();
+                            } else {
+                                alert("Failed to pay extra payments.");
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Error saving extra payments:", error);
+                            alert("An error occurred while saving extra payments.");
+                        }
+                    });
+                }, 200); // 500ms debounce delay
+
+                // Attach debounced handler
+                $("#saveExtraPayments").click(handleSaveExtraPayments);
+
+                // Initialize button state on page load
+                $("#saveExtraPayments").prop("disabled", extraPayments.length === 0);
+            });
+
+            // Show success toast
+            function showSuccessToast(message = "Order placed successfully!") {
+                let toastElement = document.getElementById("orderSuccessToast");
+                if (toastElement) {
+                    toastElement.querySelector(".toast-body").textContent = message;
+                    let toast = new bootstrap.Toast(toastElement);
+                    toast.show();
+                } else {
+                    console.error("Toast element not found!");
+                }
+            }
+        });
+    </script>
+</div>

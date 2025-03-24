@@ -1,0 +1,137 @@
+﻿@using SystemApp.ViewModels
+@model FinancialSummaryViewModel
+
+@{
+    ViewData["Title"] = "Financial Analysis Dashboard";
+}
+
+<div class="container">
+    <h1 class="mt-4">Financial Analysis Dashboard</h1>
+    <p class="lead">Analyze your earnings, spending, and net profit over a selected period.</p>
+
+    <!-- Date Filter Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Filter by Date Range</h5>
+            <form method="get" asp-action="MoneyFlow" class="row g-3">
+                <div class="col-md-5">
+                    <label for="startDate" class="form-label">Start Date</label>
+                    <input type="date" id="startDate" name="startDate" value="@ViewBag.StartDate" class="form-control" />
+                </div>
+                <div class="col-md-5">
+                    <label for="endDate" class="form-label">End Date</label>
+                    <input type="date" id="endDate" name="endDate" value="@ViewBag.EndDate" class="form-control" />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Financial Summary Cards -->
+    <div class="row">
+        <!-- Earnings Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">Earnings and Profit from Sales</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Total Earnings:</strong> @Model.TotalEarnings.ToString("C")</p>
+                    <p class="card-text"><strong>Total Profit from Sales:</strong> @Model.TotalProfitFromSales.ToString("C")</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spending Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0">Spending on Purchasing Goods</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Total Spending on Purchases:</strong> @Model.TotalSpendingOnPurchases.ToString("C")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extra Payments and Net Profit Cards -->
+    <div class="row">
+        <!-- Extra Payments Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">Extra Payments</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Total Extra Payments:</strong> @Model.TotalExtraPayments.ToString("C")</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Net Profit Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header @(Model.NetProfit >= 0 ? "bg-primary" : "bg-danger") text-white">
+                    <h5 class="card-title mb-0">Net Profit or Loss</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text"><strong>Net Profit:</strong> @Model.NetProfit.ToString("C")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section (Optional) -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white">
+            <h5 class="card-title mb-0">Financial Trends</h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">Visual representation of financial data over time.</p>
+            <!-- Placeholder for a chart (e.g., using Chart.js or a similar library) -->
+            <canvas id="financialChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Optional: Add Chart.js for Visualizations -->
+@section Scripts {
+    <script src="~/js/chart.umd.js" asp-append-version="true"></script>
+    <script src="~/lib/jquery/dist/jquery.js" asp-append-version="true"></script>
+
+    <script>
+        // Example Chart.js implementation
+        const ctx = document.getElementById('financialChart').getContext('2d');
+        const financialChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Earnings', 'Spending', 'Profit'],
+                datasets: [{
+                    label: 'Financial Data',
+                    data: [@Model.TotalEarnings, @Model.TotalSpendingOnPurchases, @Model.NetProfit],
+                    backgroundColor: [
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
+}

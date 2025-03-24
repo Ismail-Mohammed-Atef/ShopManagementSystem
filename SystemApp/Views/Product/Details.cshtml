@@ -1,0 +1,18 @@
+﻿@using DataLayer.Models
+@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+@model Product
+<h2>Buy @Model.ProductName</h2>
+
+<form method="post">
+    <input type="hidden" asp-for="@Model.ProductName" />
+    <input type="hidden" asp-for="@Model.Quantity" />
+
+    <label>Quantity:</label>
+    <input type="number" asp-for="Quantity" min="1" required />
+
+    <button type="submit">OK</button>
+</form>
